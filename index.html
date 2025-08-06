@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Flow Builder with GoJS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gojs/2.3.13/go.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            border-right: 2px solid #e9ecef;
+            overflow-y: auto;
+            flex-shrink: 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .diagram-container {
+            flex: 1;
+            background: #ffffff;
+            position: relative;
+        }
+
+        #myDiagramDiv {
+            width: 100%;
+            height: 100%;
+            background: white;
+        }
+
+        /* Sidebar Styles */
+        .sidebar-header {
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .sidebar-header h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .sidebar-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .sidebar-section h3 {
+            font-size: 16px;
+            color: #495057;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .json-editor {
+            width: 100%;
+            height: 300px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 6px;
+            padding: 12px;
+            resize: vertical;
+            background: #f8f9fa;
+        }
+
+        .json-editor:focus {
+            outline: none;
+            border-color: #007bff;
+            background: white;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Properties Panel */
+        .properties {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+        }
+
+        .property {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+
+        .property-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .property-value {
+            color: #6c757d;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        /* Edit Panel */
+        .edit-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            z-index: 1000;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .edit-panel.show {
+            display: block;
+            animation: fadeInScale 0.3s ease;
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 999;
+            display: none;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 25px;
+            justify-content: flex-end;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 2000;
+            font-weight: 500;
+            display: none;
+        }
+
+        .toast.error {
+            background: #dc3545;
+        }
+
+        .toast.show {
+            display: block;
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Add Element Buttons */
+        .add-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .palette-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border: 2px dashed #ced4da;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .palette-item:hover {
+            border-color: #007bff;
+            background: #e3f2fd;
+            color: #007bff;
+        }
+
+        .palette-item::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 3px;
+        }
+
+        .palette-item.start::before { background: #4CAF50; border-radius: 50%; }
+        .palette-item.process::before { background: #2196F3; }
+        .palette-item.decision::before { background: #FF9800; transform: rotate(45deg); }
+        .palette-item.document::before { background: #9C27B0; }
+        .palette-item.end::before { background: #4CAF50; border-radius: 50%; }
+
+        /* Status Bar */
+        .status-bar {
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            padding: 10px 20px;
+            font-size: 12px;
+            color: #6c757d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Process Flow Builder</h2>
+                <p>Create and edit process flows with GoJS</p>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>📄 JSON Configuration</h3>
+                <textarea id="jsonEditor" class="json-editor" placeholder="Paste your JSON configuration here..."></textarea>
+                <div class="btn-group" style="margin-top: 12px;">
+                    <button class="btn btn-success" onclick="loadFromJson()">📥 Load</button>
+                    <button class="btn" onclick="exportJson()">📤 Export</button>
+                    <button class="btn btn-secondary" onclick="loadSample()">🔄 Sample</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>➕ Add Elements</h3>
+                <div class="add-buttons">
+                    <div class="palette-item start" onclick="addNode('Start')">🟢 Start</div>
+                    <div class="palette-item process" onclick="addNode('Process')">🔵 Process</div>
+                    <div class="palette-item decision" onclick="addNode('Decision')">🔶 Decision</div>
+                    <div class="palette-item document" onclick="addNode('Document')">🟣 Document</div>
+                </div>
+                <div class="palette-item end" onclick="addNode('End')" style="margin-top: 10px;">🔴 End</div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🎯 Selected Element</h3>
+                <div id="propertiesPanel" class="properties">
+                    <p style="color: #6c757d; font-style: italic; text-align: center; padding: 20px;">
+                        Click an element to view and edit its properties
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="toolbar">
+                <button class="btn btn-success" onclick="saveProcess()">💾 Save Process</button>
+                <button class="btn btn-danger" onclick="clearDiagram()">🗑️ Clear All</button>
+                <button class="btn" onclick="autoLayout()">🔄 Auto Layout</button>
+                <button class="btn btn-secondary" onclick="exportImage()">🖼️ Export PNG</button>
+                <div style="margin-left: auto; color: #6c757d; font-size: 14px;">
+                    <strong>GoJS Process Builder</strong> • Click elements to edit • Drag to connect
+                </div>
+            </div>
+
+            <div class="diagram-container">
+                <div id="myDiagramDiv"></div>
+            </div>
+
+            <div class="status-bar">
+                <span id="statusText">Ready - Load or create your process flow</span>
+                <span id="nodeCount">0 elements</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Panel -->
+    <div id="overlay" class="overlay" onclick="cancelEdit()"></div>
+    <div id="editPanel" class="edit-panel">
+        <h3 style="margin-bottom: 20px; color: #495057;">✏️ Edit Element</h3>
+        <form id="editForm">
+            <div class="form-group">
+                <label for="elementTitle">Title:</label>
+                <input type="text" id="elementTitle" placeholder="Enter element title">
+            </div>
+            <div class="form-group">
+                <label for="elementDescription">Description:</label>
+                <input type="text" id="elementDescription" placeholder="Enter description">
+            </div>
+            <div class="form-group">
+                <label for="elementDetails">Details (JSON array):</label>
+                <textarea id="elementDetails" placeholder='["Detail 1", "Detail 2", "Detail 3"]'></textarea>
+            </div>
+            <div class="form-group">
+                <label for="connectionSettings">Connections:</label>
+                <div id="connectionControls" style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef;">
+                    <div style="margin-bottom: 10px;">
+                        <strong>Outgoing Connections:</strong>
+                        <div id="outgoingConnections"></div>
+                        <button type="button" class="btn" onclick="addConnection()" style="margin-top: 8px; font-size: 12px; padding: 6px 12px;">+ Add Connection</button>
+                    </div>
+                    <div>
+                        <strong>Incoming Connections:</strong>
+                        <div id="incomingConnections"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn" onclick="cancelEdit()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="deleteElement()">🗑️ Delete</button>
+                <button type="button" class="btn btn-success" onclick="saveElement()">💾 Save Changes</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        let myDiagram;
+        let selectedNodeData = null;
+
+        // Sample data for Lebanese customs process
+        const sampleData = {
+            "title": "Lebanese Customs Re-importation (IM6) Process",
+            "subtitle": "Ministry of Finance - Customs Administration",
+            "nodeDataArray": [
+                { "key": "Start", "category": "Start", "text": "START", "loc": "0 0" },
+                { 
+                    "key": "AuthCheck", 
+                    "category": "Process", 
+                    "text": "Authorized Parties Check",
+                    "description": "Verify eligibility to submit declaration",
+                    "details": ["Original exporters (parties who previously exported goods under their names)", "Licensed customs brokers"],
+                    "loc": "0 120" 
+                },
+                { "key": "TransportMode", "category": "Decision", "text": "Transport\nMode?", "loc": "0 240" },
+                { 
+                    "key": "LandDocs", 
+                    "category": "Document", 
+                    "text": "Land Transport\nDocuments",
+                    "details": ["IM6 Declaration Form", "Shipping document for Lebanon", "Invoice (repair costs + parts)", "Copy of EX1/EX2 export declaration"],
+                    "loc": "-200 360" 
+                },
+                { 
+                    "key": "SeaDocs", 
+                    "category": "Document", 
+                    "text": "Sea/Air Transport\nDocuments",
+                    "details": ["All land transport documents PLUS:", "Original bill of lading", "Delivery order from shipping agencies", "Air transport company documentation"],
+                    "loc": "200 360" 
+                },
+                { 
+                    "key": "Submission", 
+                    "category": "Process", 
+                    "text": "Declaration Submission",
+                    "details": ["Submit to competent department or office", "Registration in special register", "Sequential numbering assigned"],
+                    "loc": "0 480" 
+                },
+                { 
+                    "key": "Inspection", 
+                    "category": "Process", 
+                    "text": "Mandatory Inspection",
+                    "details": ["Automatic referral to inspection dept.", "Physical examination of goods", "Verify goods match export records"],
+                    "loc": "0 600" 
+                },
+                { 
+                    "key": "Processing", 
+                    "category": "Process", 
+                    "text": "Final Processing",
+                    "details": ["Review by competent authority", "Final exemption decision", "Maximum 3 days processing time"],
+                    "loc": "0 720" 
+                },
+                { "key": "End", "category": "End", "text": "END", "loc": "0 840" }
+            ],
+            "linkDataArray": [
+                { "from": "Start", "to": "AuthCheck" },
+                { "from": "AuthCheck", "to": "TransportMode" },
+                { "from": "TransportMode", "to": "LandDocs", "text": "Land" },
+                { "from": "TransportMode", "to": "SeaDocs", "text": "Sea/Air" },
+                { "from": "LandDocs", "to": "Submission" },
+                { "from": "SeaDocs", "to": "Submission" },
+                { "from": "Submission", "to": "Inspection" },
+                { "from": "Inspection", "to": "Processing" },
+                { "from": "Processing", "to": "End" }
+            ]
+        };
+
+        function init() {
+            // Initialize GoJS diagram
+            myDiagram = new go.Diagram("myDiagramDiv", {
+                "undoManager.isEnabled": true,
+                layout: new go.LayeredDigraphLayout({
+                    direction: 90,
+                    layerSpacing: 80,
+                    columnSpacing: 50
+                }),
+                "grid.visible": true,
+                "grid.gridCellSize": new go.Size(20, 20),
+                allowDrop: true
+            });
+
+            // Define node templates
+            defineNodeTemplates();
+            
+            // Define link template
+            myDiagram.linkTemplate =
+                new go.Link({ routing: go.Link.AvoidsNodes, corner: 10 })
+                    .add(
+                        new go.Shape({ strokeWidth: 3, stroke: "#333" }),
+                        new go.Shape({ toArrow: "Standard", strokeWidth: 0, fill: "#333", scale: 1.5 }),
+                        new go.TextBlock({ 
+                            segmentIndex: 0, 
+                            segmentOffset: new go.Point(NaN, NaN),
+                            segmentOrientation: go.Link.OrientUpright,
+                            background: "white",
+                            stroke: "#333",
+                            font: "bold 12px sans-serif",
+                            margin: 4
+                        }).bind("text", "text")
+                    );
+
+            // Single-click selection event
+            myDiagram.addDiagramListener("ChangedSelection", onSelectionChanged);
+
+            // Double-click event for editing
+            myDiagram.addDiagramListener("ObjectDoubleClicked", function(e) {
+                const part = e.subject.part;
+                if (part instanceof go.Node) {
+                    const nodeData = part.data;
+                    const nodeIndex = myDiagram.model.nodeDataArray.indexOf(nodeData);
+                    if (nodeIndex >= 0) {
+                        selectedNodeData = nodeData;
+                        selectedIndex = nodeIndex;
+                        editElement();
+                    }
+                }
+            });
+
+            // Model changed event
+            myDiagram.addModelChangedListener(onModelChanged);
+
+            // Load sample data
+            loadSample();
+        }
+
+        function defineNodeTemplates() {
+            // Start/End template
+            myDiagram.nodeTemplateMap.add("Start",
+                new go.Node("Auto")
+                    .add(
+                        new go.Shape("Ellipse", { 
+                            minSize: new go.Size(120, 60),
+                            fill: "#4CAF50", stroke: "#45A049", strokeWidth: 3 
+                        }),
+                        new go.TextBlock({ 
+                            font: "bold 14px sans-serif", stroke: "white", 
+                            margin: 12,
+                            textAlign: "center",
+                            overflow: go.TextBlock.OverflowEllipsis,
+                            wrap: go.TextBlock.WrapFit
+                        }).bind("text", "text")
+                    )
+            );
+
+            myDiagram.nodeTemplateMap.add("End",
+                new go.Node("Auto")
+                    .add(
+                        new go.Shape("Ellipse", { 
+                            minSize: new go.Size(120, 60),
+                            fill: "#f44336", stroke: "#d32f2f", strokeWidth: 3 
+                        }),
+                        new go.TextBlock({ 
+                            font: "bold 14px sans-serif", stroke: "white", 
+                            margin: 12,
+                            textAlign: "center",
+                            overflow: go.TextBlock.OverflowEllipsis,
+                            wrap: go.TextBlock.WrapFit
+                        }).bind("text", "text")
+                    )
+            );
+
+            // Process template with auto-scaling text
+            myDiagram.nodeTemplateMap.add("Process",
+                new go.Node("Auto")
+                    .add(
+                        new go.Shape("RoundedRectangle", { 
+                            fill: "#2196F3", stroke: "#1976D2", strokeWidth: 3,
+                            minSize: new go.Size(180, 80),
+                            maxSize: new go.Size(400, 300)
+                        }),
+                        new go.Panel("Table", { 
+                            margin: 12,
+                            maxSize: new go.Size(380, 280)
+                        })
+                            .add(
+                                new go.TextBlock({ 
+                                    row: 0,
+                                    font: "bold 13px sans-serif", stroke: "white", 
+                                    textAlign: "center",
+                                    wrap: go.TextBlock.WrapFit,
+                                    overflow: go.TextBlock.OverflowEllipsis,
+                                    margin: new go.Margin(4, 8, 8, 8),
+                                    maxSize: new go.Size(360, 60),
+                                    isMultiline: true
+                                }).bind("text", "text"),
+                                new go.TextBlock({ 
+                                    row: 1,
+                                    font: "10px sans-serif", stroke: "white", 
+                                    textAlign: "left",
+                                    wrap: go.TextBlock.WrapFit,
+                                    overflow: go.TextBlock.OverflowClip,
+                                    margin: new go.Margin(0, 8, 4, 8),
+                                    maxSize: new go.Size(360, 200),
+                                    isMultiline: true
+                                }).bind("text", "", function(data) {
+                                    let result = "";
+                                    if (data.description) result += data.description + "\n";
+                                    if (data.details && Array.isArray(data.details) && data.details.length > 0) {
+                                        result += data.details.map(d => "• " + d).join("\n");
+                                    }
+                                    return result.trim();
+                                })
+                            )
+                    )
+            );
+
+            // Decision template with auto-scaling text
+            myDiagram.nodeTemplateMap.add("Decision",
+                new go.Node("Auto")
+                    .add(
+                        new go.Shape("Diamond", { 
+                            minSize: new go.Size(120, 80),
+                            maxSize: new go.Size(180, 120),
+                            fill: "#FF9800", stroke: "#F57C00", strokeWidth: 3 
+                        }),
+                        new go.TextBlock({ 
+                            font: "bold 11px sans-serif", stroke: "white", 
+                            margin: 12, 
+                            textAlign: "center",
+                            wrap: go.TextBlock.WrapFit,
+                            overflow: go.TextBlock.OverflowEllipsis,
+                            maxSize: new go.Size(140, 80),
+                            isMultiline: true
+                        }).bind("text", "text")
+                    )
+            );
+
+            // Document template with auto-scaling text
+            myDiagram.nodeTemplateMap.add("Document",
+                new go.Node("Auto")
+                    .add(
+                        new go.Shape("RoundedRectangle", { 
+                            fill: "#9C27B0", stroke: "#7B1FA2", strokeWidth: 3,
+                            parameter1: 8,
+                            minSize: new go.Size(200, 100),
+                            maxSize: new go.Size(450, 350)
+                        }),
+                        new go.Panel("Table", { 
+                            margin: 12,
+                            maxSize: new go.Size(430, 330)
+                        })
+                            .add(
+                                new go.TextBlock({ 
+                                    row: 0,
+                                    font: "bold 12px sans-serif", stroke: "white", 
+                                    textAlign: "center",
+                                    wrap: go.TextBlock.WrapFit,
+                                    overflow: go.TextBlock.OverflowEllipsis,
+                                    margin: new go.Margin(4, 8, 8, 8),
+                                    maxSize: new go.Size(410, 60),
+                                    isMultiline: true
+                                }).bind("text", "text"),
+                                new go.TextBlock({ 
+                                    row: 1,
+                                    font: "9px sans-serif", stroke: "white", 
+                                    textAlign: "left",
+                                    wrap: go.TextBlock.WrapFit,
+                                    overflow: go.TextBlock.OverflowClip,
+                                    margin: new go.Margin(0, 8, 4, 8),
+                                    maxSize: new go.Size(410, 250),
+                                    isMultiline: true
+                                }).bind("text", "", function(data) {
+                                    let result = "";
+                                    if (data.description) result += data.description + "\n";
+                                    if (data.details && Array.isArray(data.details) && data.details.length > 0) {
+                                        result += data.details.map(d => "• " + d).join("\n");
+                                    }
+                                    return result.trim();
+                                })
+                            )
+                    )
+            );
+        }
+
+        function onSelectionChanged() {
+            const selectedNode = myDiagram.selection.first();
+            if (selectedNode instanceof go.Node) {
+                selectedNodeData = selectedNode.data;
+                showProperties(selectedNodeData);
+            } else {
+                selectedNodeData = null;
+                document.getElementById("propertiesPanel").innerHTML = 
+                    '<p style="color: #6c757d; font-style: italic; text-align: center; padding: 20px;">Click an element to view and edit its properties</p>';
+            }
+        }
+
+        function onModelChanged() {
+            updateStatus();
+        }
+
+        function updateStatus() {
+            const nodeCount = myDiagram.model.nodeDataArray.length;
+            const linkCount = myDiagram.model.linkDataArray.length;
+            document.getElementById("nodeCount").textContent = `${nodeCount} elements, ${linkCount} connections`;
+        }
+
+        function showProperties(data) {
+            const panel = document.getElementById("propertiesPanel");
+            let detailsHtml = '';
+            
+            if (data.details && Array.isArray(data.details)) {
+                detailsHtml = `
+                    <div class="property">
+                        <div class="property-label">Details:</div>
+                        <div class="property-value">${data.details.map(d => `• ${d}`).join('<br>')}</div>
+                    </div>
+                `;
+            }
+
+            panel.innerHTML = `
+                <div class="property">
+                    <div class="property-label">Type:</div>
+                    <div class="property-value">${data.category}</div>
+                </div>
+                <div class="property">
+                    <div class="property-label">Title:</div>
+                    <div class="property-value">${data.text}</div>
+                </div>
+                ${data.description ? `
+                <div class="property">
+                    <div class="property-label">Description:</div>
+                    <div class="property-value">${data.description}</div>
+                </div>
+                ` : ''}
+                ${detailsHtml}
+                <button class="btn" onclick="editElement()" style="width: 100%; margin-top: 15px;">
+                    ✏️ Edit Element
+                </button>
+            `;
+        }
+
+        function loadFromJson() {
+            try {
+                const jsonText = document.getElementById('jsonEditor').value;
+                const data = JSON.parse(jsonText);
+                
+                myDiagram.model = new go.GraphLinksModel(data.nodeDataArray, data.linkDataArray);
+                myDiagram.layoutDiagram(true);
+                
+                // Force refresh to show details
+                myDiagram.requestUpdate();
+                
+                document.getElementById("statusText").textContent = `Loaded: ${data.title || 'Process Flow'}`;
+                showToast('Process loaded with all details!');
+            } catch (error) {
+                showToast('Invalid JSON: ' + error.message, 'error');
+                console.error('JSON parse error:', error);
+            }
+        }
+
+        function exportJson() {
+            const modelData = {
+                title: sampleData.title,
+                subtitle: sampleData.subtitle,
+                nodeDataArray: myDiagram.model.nodeDataArray,
+                linkDataArray: myDiagram.model.linkDataArray
+            };
+            
+            const jsonText = JSON.stringify(modelData, null, 2);
+            document.getElementById('jsonEditor').value = jsonText;
+            
+            navigator.clipboard.writeText(jsonText).then(() => {
+                showToast('JSON copied to clipboard!');
+            }).catch(() => {
+                showToast('JSON updated in editor');
+            });
+        }
+
+        function loadSample() {
+            myDiagram.model = new go.GraphLinksModel(sampleData.nodeDataArray, sampleData.linkDataArray);
+            myDiagram.layoutDiagram(true);
+            document.getElementById('jsonEditor').value = JSON.stringify(sampleData, null, 2);
+            document.getElementById("statusText").textContent = `Loaded: ${sampleData.title}`;
+            
+            // Force refresh to show details
+            myDiagram.requestUpdate();
+            
+            showToast('Sample process loaded with details!');
+        }
+
+        function addNode(category) {
+            const newKey = category + "_" + Date.now();
+            const nodeCount = myDiagram.model.nodeDataArray.length;
+            const spacing = 120;
+            
+            const newNode = {
+                key: newKey,
+                category: category,
+                text: `New ${category}`,
+                loc: `${(nodeCount % 3) * 200} ${Math.floor(nodeCount / 3) * spacing}`
+            };
+
+            if (category === "Process" || category === "Document") {
+                newNode.details = [`${category} detail 1`, `${category} detail 2`];
+                newNode.description = `Description for ${category.toLowerCase()}`;
+            }
+
+            myDiagram.startTransaction("add node");
+            myDiagram.model.addNodeData(newNode);
+            myDiagram.commitTransaction("add node");
+            
+            // Select the new node
+            const newNodeObj = myDiagram.findNodeForKey(newKey);
+            if (newNodeObj) {
+                myDiagram.select(newNodeObj);
+            }
+            
+            showToast(`${category} element added! Click to edit.`);
+        }
+
+        function editElement() {
+            if (!selectedNodeData) {
+                showToast('Please select an element first', 'error');
+                return;
+            }
+
+            document.getElementById('elementTitle').value = selectedNodeData.text || '';
+            document.getElementById('elementDescription').value = selectedNodeData.description || '';
+            document.getElementById('elementDetails').value = selectedNodeData.details ? 
+                JSON.stringify(selectedNodeData.details, null, 2) : '[]';
+
+            // Populate connection controls
+            populateConnectionControls();
+
+            document.getElementById('overlay').classList.add('show');
+            document.getElementById('editPanel').classList.add('show');
+        }
+
+        function populateConnectionControls() {
+            if (!selectedNodeData) return;
+
+            const nodeKey = selectedNodeData.key;
+            const links = myDiagram.model.linkDataArray;
+            const nodes = myDiagram.model.nodeDataArray;
+
+            // Show outgoing connections
+            const outgoingDiv = document.getElementById('outgoingConnections');
+            const outgoingLinks = links.filter(link => link.from === nodeKey);
+            
+            outgoingDiv.innerHTML = '';
+            outgoingLinks.forEach((link, index) => {
+                const targetNode = nodes.find(n => n.key === link.to);
+                const targetName = targetNode ? targetNode.text : link.to;
+                
+                outgoingDiv.innerHTML += `
+                    <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0; padding: 8px; background: white; border-radius: 4px;">
+                        <span style="flex: 1; font-size: 12px;">→ ${targetName}</span>
+                        <input type="text" value="${link.text || ''}" placeholder="Label" 
+                               onchange="updateLinkText('${link.from}', '${link.to}', this.value)"
+                               style="width: 80px; padding: 4px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px;">
+                        <button type="button" onclick="removeConnection('${link.from}', '${link.to}')" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 11px;">×</button>
+                    </div>
+                `;
+            });
+
+            if (outgoingLinks.length === 0) {
+                outgoingDiv.innerHTML = '<p style="color: #6c757d; font-size: 12px; margin: 8px 0;">No outgoing connections</p>';
+            }
+
+            // Show incoming connections
+            const incomingDiv = document.getElementById('incomingConnections');
+            const incomingLinks = links.filter(link => link.to === nodeKey);
+            
+            incomingDiv.innerHTML = '';
+            incomingLinks.forEach(link => {
+                const sourceNode = nodes.find(n => n.key === link.from);
+                const sourceName = sourceNode ? sourceNode.text : link.from;
+                
+                incomingDiv.innerHTML += `
+                    <div style="display: flex; align-items: center; gap: 8px; margin: 5px 0; padding: 8px; background: white; border-radius: 4px;">
+                        <span style="flex: 1; font-size: 12px;">${sourceName} →</span>
+                        <span style="font-size: 11px; color: #6c757d;">${link.text || 'no label'}</span>
+                    </div>
+                `;
+            });
+
+            if (incomingLinks.length === 0) {
+                incomingDiv.innerHTML = '<p style="color: #6c757d; font-size: 12px; margin: 8px 0;">No incoming connections</p>';
+            }
+        }
+
+        function addConnection() {
+            if (!selectedNodeData) return;
+
+            const nodes = myDiagram.model.nodeDataArray;
+            const currentKey = selectedNodeData.key;
+            
+            // Create dropdown of available target nodes
+            const availableNodes = nodes.filter(n => n.key !== currentKey);
+            
+            if (availableNodes.length === 0) {
+                showToast('No other nodes available to connect to', 'error');
+                return;
+            }
+
+            const outgoingDiv = document.getElementById('outgoingConnections');
+            
+            // Remove "no connections" message if it exists
+            if (outgoingDiv.innerHTML.includes('No outgoing connections')) {
+                outgoingDiv.innerHTML = '';
+            }
+
+            const newConnectionId = 'newConn_' + Date.now();
+            
+            outgoingDiv.innerHTML += `
+                <div id="${newConnectionId}" style="display: flex; align-items: center; gap: 8px; margin: 5px 0; padding: 8px; background: #e3f2fd; border-radius: 4px; border: 2px dashed #2196f3;">
+                    <select onchange="setNewConnectionTarget(this.value, '${newConnectionId}')" style="flex: 1; padding: 4px; font-size: 11px;">
+                        <option value="">Select target...</option>
+                        ${availableNodes.map(n => `<option value="${n.key}">${n.text}</option>`).join('')}
+                    </select>
+                    <input type="text" placeholder="Label" id="${newConnectionId}_label"
+                           style="width: 80px; padding: 4px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px;">
+                    <button type="button" onclick="confirmNewConnection('${newConnectionId}')" 
+                            style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 11px;">✓</button>
+                    <button type="button" onclick="cancelNewConnection('${newConnectionId}')" 
+                            style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 11px;">×</button>
+                </div>
+            `;
+        }
+
+        function confirmNewConnection(connectionId) {
+            const connectionDiv = document.getElementById(connectionId);
+            const select = connectionDiv.querySelector('select');
+            const labelInput = connectionDiv.querySelector('input');
+            
+            const targetKey = select.value;
+            const label = labelInput.value.trim();
+            
+            if (!targetKey) {
+                showToast('Please select a target node', 'error');
+                return;
+            }
+
+            // Add the new connection to the model
+            const newLink = {
+                from: selectedNodeData.key,
+                to: targetKey,
+                text: label || undefined
+            };
+
+            myDiagram.startTransaction("add connection");
+            myDiagram.model.addLinkData(newLink);
+            myDiagram.commitTransaction("add connection");
+
+            // Refresh the connection controls
+            populateConnectionControls();
+            showToast('Connection added successfully!');
+        }
+
+        function cancelNewConnection(connectionId) {
+            const connectionDiv = document.getElementById(connectionId);
+            connectionDiv.remove();
+        }
+
+        function updateLinkText(fromKey, toKey, newText) {
+            const links = myDiagram.model.linkDataArray;
+            const link = links.find(l => l.from === fromKey && l.to === toKey);
+            
+            if (link) {
+                myDiagram.startTransaction("update link text");
+                myDiagram.model.setDataProperty(link, "text", newText || undefined);
+                myDiagram.commitTransaction("update link text");
+            }
+        }
+
+        function removeConnection(fromKey, toKey) {
+            if (confirm('Remove this connection?')) {
+                const links = myDiagram.model.linkDataArray;
+                const link = links.find(l => l.from === fromKey && l.to === toKey);
+                
+                if (link) {
+                    myDiagram.startTransaction("remove connection");
+                    myDiagram.model.removeLinkData(link);
+                    myDiagram.commitTransaction("remove connection");
+                    
+                    populateConnectionControls();
+                    showToast('Connection removed');
+                }
+            }
+        }
+
+        function saveElement() {
+            if (!selectedNodeData) {
+                showToast('No element selected', 'error');
+                return;
+            }
+
+            try {
+                const title = document.getElementById('elementTitle').value.trim();
+                const description = document.getElementById('elementDescription').value.trim();
+                const detailsText = document.getElementById('elementDetails').value.trim();
+                
+                if (!title) {
+                    showToast('Title is required', 'error');
+                    return;
+                }
+
+                // Start a transaction for multiple changes
+                myDiagram.startTransaction("update node");
+                
+                myDiagram.model.setDataProperty(selectedNodeData, "text", title);
+                
+                if (description) {
+                    myDiagram.model.setDataProperty(selectedNodeData, "description", description);
+                }
+                
+                if (detailsText) {
+                    try {
+                        const details = JSON.parse(detailsText);
+                        if (Array.isArray(details)) {
+                            myDiagram.model.setDataProperty(selectedNodeData, "details", details);
+                        } else {
+                            showToast('Details must be a JSON array', 'error');
+                            myDiagram.rollbackTransaction();
+                            return;
+                        }
+                    } catch (parseError) {
+                        showToast('Invalid JSON in details field', 'error');
+                        myDiagram.rollbackTransaction();
+                        return;
+                    }
+                }
+
+                myDiagram.commitTransaction("update node");
+                cancelEdit();
+                showProperties(selectedNodeData);
+                showToast('Element updated successfully!');
+                
+            } catch (error) {
+                myDiagram.rollbackTransaction();
+                showToast('Error updating element: ' + error.message, 'error');
+            }
+        }
+
+        function cancelEdit() {
+            document.getElementById('overlay').classList.remove('show');
+            document.getElementById('editPanel').classList.remove('show');
+        }
+
+        function deleteElement() {
+            if (!selectedNodeData) {
+                showToast('No element selected', 'error');
+                return;
+            }
+
+            const elementName = selectedNodeData.text || 'this element';
+            if (confirm(`Delete "${elementName}" and all its connections?`)) {
+                myDiagram.startTransaction("delete node");
+                myDiagram.model.removeNodeData(selectedNodeData);
+                myDiagram.commitTransaction("delete node");
+                
+                selectedNodeData = null;
+                cancelEdit();
+                
+                // Clear properties panel
+                document.getElementById("propertiesPanel").innerHTML = 
+                    '<p style="color: #6c757d; font-style: italic; text-align: center; padding: 20px;">Click an element to view and edit its properties</p>';
+                    
+                showToast('Element deleted successfully!');
+            }
+        }
+
+        function saveProcess() {
+            exportJson();
+            showToast('Process saved to JSON editor!');
+        }
+
+        function clearDiagram() {
+            if (confirm('Clear all elements? This cannot be undone.')) {
+                myDiagram.model = new go.GraphLinksModel();
+                document.getElementById("statusText").textContent = "Canvas cleared";
+                showToast('Diagram cleared!');
+            }
+        }
+
+        function autoLayout() {
+            myDiagram.layoutDiagram(true);
+            showToast('Layout applied!');
+        }
+
+        function exportImage() {
+            const blob = myDiagram.makeImageData({
+                background: "white",
+                returnType: "blob",
+                callback: (blob) => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.style.display = "none";
+                    a.href = url;
+                    a.download = "process-flow.png";
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showToast('Image exported!');
+                }
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type === 'error' ? 'error' : ''} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize when page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
